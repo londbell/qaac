@@ -52,7 +52,7 @@ struct Options {
         filename_from_tag(false), sort_args(false),
         no_smart_padding(false), limiter(false), copy_artwork(false),
 
-        bitrate(-1.0), gain(0.0),
+        bitrate(-1.0), gain(0.0), target_bitrate(0),
 
         output_format(0)
     {}
@@ -115,6 +115,7 @@ struct Options {
          concat, no_matrix_normalize, no_dither, filename_from_tag,
          sort_args, no_smart_padding, limiter, copy_artwork;
     double bitrate, gain;
+    uint32_t target_bitrate;  // 0: use actual bitrate, >0: override avgBitrate in kbps
 
     uint32_t output_format;
     std::vector<DRCParams> drc_params;

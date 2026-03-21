@@ -739,7 +739,12 @@ void finalize_m4a(MP4SinkBase *sink, IEncoder *encoder,
         }
     }
     sink->writeTags();
-    sink->writeBitrates(stat->overallBitrate() * 1000.0 + .5);
+    {
+        unsigned avgBitrate = opts.target_bitrate > 0
+            ? opts.target_bitrate * 1000
+            : static_cast<unsigned>(stat->overallBitrate() * 1000.0 + .5);
+        sink->writeBitrates(avgBitrate);
+    }
     if (!opts.no_optimize)
         do_optimize(sink->getFile(), ofilename, opts.verbose);
     sink->close();

@@ -352,7 +352,7 @@ static void complain(const wchar_t *s)
 }
 
 #ifdef QAAC
-static const wchar_t * const short_opts = L"hDo:d:b:r:insRSNAa:V:v:c:q:";
+static const wchar_t * const short_opts = L"hDo:d:b:r:insRSNAa:V:v:c:q:t:";
 #endif
 #ifdef REFALAC
 static const wchar_t * const short_opts = L"hDo:d:b:r:insRSNA";
@@ -723,6 +723,14 @@ bool Options::parse(int &argc, wchar_t **&argv)
             this->remix_preset = getopt::optarg;
         else if (ch == 'mixm')
             this->remix_file = getopt::optarg;
+        else if (ch == 't') {
+            uint32_t n;
+            if (std::swscanf(getopt::optarg, L"%u", &n) != 1) {
+                complain(L"-t requires an integer (bitrate in kbps).\n");
+                return false;
+            }
+            this->target_bitrate = n;
+        }
         else if (ch == 'fftg')
             this->filename_from_tag = true;
         else
