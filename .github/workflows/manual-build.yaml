@@ -32,7 +32,7 @@ jobs:
                   $outdir = "qaac-$platform"
                   New-Item -ItemType Directory -Path $outdir -Force
                   Get-ChildItem -Path vcproject -Recurse -Filter "*.exe" | Copy-Item -Destination $outdir
-                  Compress-Archive -Path $outdir -DestinationPath "qaac-$platform.zip"
+                  Compress-Archive -Path (Join-Path $outdir "*") -DestinationPath "qaac-$platform.zip"
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
