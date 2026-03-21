@@ -1,0 +1,35 @@
+name: Manual Build
+
+on:
+    workflow_dispatch:
+        inputs:
+            branch:
+                description: 'Branch to build'
+                required: true
+                default: 'feature/itunes'
+
+jobs:
+    build:
+        strategy:
+            matrix:
+                platform: [Win32, x64]
+        runs-on: windows-latest
+        env:
+            ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+              with:
+                  ref: ${{ github.event.inputs.branch }}
+            - name: Add MSBuild to PATH
+              uses: microsoft/setup-msbuild@v1.3.1
+            - name: Build
+              run: |
+                  MSBuild.exe vcproject/qaac.sln /m /p:Configuration=Release /p:Platform=${{ matrix.platform }}
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: qaac-${{ matrix.platform }}
+                  path: |
+                      vcproject/qaac/Release/${{ matrix.platform }}/qaac.exe
+                      vcproject/refalac/Release/${{ matrix.platform }}/refalac.exe
