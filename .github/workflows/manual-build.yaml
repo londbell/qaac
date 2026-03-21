@@ -26,10 +26,15 @@ jobs:
             - name: Build
               run: |
                   MSBuild.exe vcproject/qaac.sln /m /p:Configuration=Release /p:Platform=${{ matrix.platform }}
+            - name: Create ZIP
+              run: |
+                  $platform = "${{ matrix.platform }}"
+                  $outdir = "qaac-$platform"
+                  New-Item -ItemType Directory -Path $outdir -Force
+                  Get-ChildItem -Path vcproject -Recurse -Filter "*.exe" | Copy-Item -Destination $outdir
+                  Compress-Archive -Path $outdir -DestinationPath "qaac-$platform.zip"
             - name: Upload Artifacts
               uses: actions/upload-artifact@v3
               with:
                   name: qaac-${{ matrix.platform }}
-                  path: |
-                      vcproject/qaac/Release/${{ matrix.platform }}/qaac.exe
-                      vcproject/refalac/Release/${{ matrix.platform }}/refalac.exe
+                  path: qaac-${{ matrix.platform }}.zip
