@@ -11,6 +11,7 @@ void MMTISOBMFFSinkBase::writeSamples(const void *data, size_t length, size_t ns
     std::memcpy(sample.rawData.data(), data, length);
     uint32_t duration = nsamples / m_sampleDurationDivisor;
     sample.duration = duration;
+    sample.isSyncSample = true;
     if (m_gaplessMode & MODE_EDTS) {
         sample.sampleGroupInfo =
             mmt::isobmff::SSampleGroupInfo(mmt::isobmff::SampleGroupType::roll, -1, 0);
