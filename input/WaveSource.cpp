@@ -8,6 +8,7 @@
 #include "util.h"
 #include "platformutil.h"
 #include "chanmap.h"
+#include "metadata.h"
 
 #define FOURCCR(a,b,c,d) ((a)|((b)<<8)|((c)<<16)|((d)<<24))
 
@@ -35,6 +36,9 @@ WaveSource::WaveSource(std::shared_ptr<IInputStream> stream, bool ignorelength)
         if (fsize > 0)
             m_length = (fsize - m_data_pos) / m_block_align;
     }
+    try {
+        m_tags = ID3::fetchWavID3Tags(stream);
+    } catch (...) {}
 }
 
 size_t WaveSource::readSamples(void *buffer, size_t nsamples)

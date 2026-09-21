@@ -5,6 +5,8 @@
 #include "catypes.h"
 #include "platformutil.h"
 #include "IInputStream.h"
+#include <map>
+#include <string>
 
 namespace wave {
     struct GUID {
@@ -17,7 +19,7 @@ namespace wave {
     extern const GUID ksFormatSubTypeFloat;
 }
 
-class WaveSource: public ISeekableSource {
+class WaveSource: public ISeekableSource, public ITagParser {
     int m_block_align;
     int64_t m_data_pos;
     int64_t m_position;
@@ -25,6 +27,7 @@ class WaveSource: public ISeekableSource {
     std::shared_ptr<IInputStream> m_stream;
     std::vector<uint32_t> m_chanmap;
     std::vector<uint8_t> m_buffer;
+    std::map<std::string, std::string> m_tags;
     ca::AudioStreamBasicDescription m_asbd;
 public:
     WaveSource(std::shared_ptr<IInputStream> m_stream, bool ignorelength = false);
@@ -40,6 +43,7 @@ public:
     int64_t getPosition() { return m_position; }
     size_t readSamples(void *buffer, size_t nsamples);
     void seekTo(int64_t count);
+    const std::map<std::string, std::string> &getTags() const { return m_tags; }
 private:
     int64_t parse();
     void read16le(void *n);

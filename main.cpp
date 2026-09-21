@@ -830,8 +830,11 @@ void finishWriteSink(const std::shared_ptr<ISink> &sink, IEncoder *encoder,
 {
     IBitrateWriter *bw = dynamic_cast<IBitrateWriter*>(sink.get());
     if (bw) {
-        IEncoderStat *stat = dynamic_cast<IEncoderStat *>(encoder);
-        bw->writeBitrates(stat->overallBitrate() * 1000.0 + .5);
+        IEncoderStat *stat = dynamic_cast<IEncoderStat*>(encoder);
+        unsigned avgBitrate = opts.itunes_bitrate > 0
+            ? opts.itunes_bitrate * 1000
+            : static_cast<unsigned>(stat->overallBitrate() * 1000.0 + .5);
+        bw->writeBitrates(avgBitrate);
     }
     IFinishWriteSink *fsink = dynamic_cast<IFinishWriteSink*>(sink.get());
     if (fsink)

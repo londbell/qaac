@@ -261,6 +261,132 @@ namespace ID3 {
         auto tag = file.ID3v2Tag();
         return fetchID3v2Tags(tag);
     }
+    /* Parse the "ID3 " (or "id3 ") chunk of a RIFF/WAVE file.
+     * ffmpeg and friends store ID3v2 metadata + cover art there.
+     */
+    class MemInputStream: public IInputStream {
+        std::vector<char> m_data;
+        int64_t m_pos;
+    public:
+        MemInputStream(const void *data, size_t size)
+            : m_data(static_cast<const char*>(data),
+                     static_cast<const char*>(data) + size), m_pos(0) {}
+        bool seekable() { return true; }
+        int read(void *buff, unsigned size)
+        {
+            int64_t rest = m_data.size() - m_pos;
+            int n = static_cast<int>(std::min<int64_t>(size, rest));
+            if (n > 0) {
+                std::memcpy(buff, &m_data[m_pos], n);
+                m_pos += n;
+            }
+            return n;
+        }
+        int64_t seek(int64_t off, int whence)
+        {
+            int64_t base = (whence == SEEK_SET) ? 0 :
+                           (whence == SEEK_CUR) ? m_pos :
+                           static_cast<int64_t>(m_data.size());
+            m_pos = base + off;
+            if (m_pos < 0) m_pos = 0;
+            if (m_pos > static_cast<int64_t>(m_data.size()))
+                m_pos = m_data.size();
+            return m_pos;
+        }
+        int64_t tell() { return m_pos; }
+        int64_t size() { return m_data.size(); }
+    };
+    /* Some WAV files (e.g. piped ffmpeg output) have a bogus data chunk
+     * size, so trailing metadata chunks can't be reached by walking the
+     * chunk chain. In that case, scan the tail of the file for a valid
+     * "id3 " chunk instead.
+     */
+    std::map<std::string, std::string>
+    fetchWavID3TagsFromTail(std::shared_ptr<IInputStream> stream)
+    {
+        int64_t fsize = stream->size();
+        if (fsize <= 0)
+            return {};
+
+        const int64_t window = std::min<int64_t>(fsize, 8 << 20);
+        std::vector<char> buf(static_cast<size_t>(window));
+        stream->seek(fsize - window, SEEK_SET);
+        if (stream->read(&buf[0], window) != static_cast<int>(window))
+            return {};
+        const int64_t base = fsize - window;
+
+        /* id3 chunk is normally the last one: try candidates from the end */
+        for (size_t i = buf.size() - 4; ; --i) {
+            if (!std::memcmp(&buf[i], "id3 ", 4) ||
+                !std::memcmp(&buf[i], "ID3 ", 4)) {
+                if (i + 8 > buf.size())
+                    goto next;
+                uint32_t sz = buf[i+4] | (buf[i+5] << 8) | (buf[i+6] << 16)
+                            | (static_cast<uint32_t>(buf[i+7]) << 24);
+                int64_t end = base + i + 8 + sz;
+                /* chunk must end exactly at EOF (optionally 1 pad byte) */
+                if (sz >= 10 && end <= fsize && fsize - end <= 1) {
+                    std::vector<char> id3(sz);
+                    stream->seek(base + i + 8, SEEK_SET);
+                    if (stream->read(&id3[0], sz) == static_cast<int>(sz) &&
+                        !std::memcmp(&id3[0], "ID3", 3))
+                    {
+                        auto mem = std::make_shared<MemInputStream>(&id3[0], sz);
+                        TagLibX::IStreamReader reader(mem);
+                        TagLib::MPEG::File file(&reader,
+                                TagLib::ID3v2::FrameFactory::instance(), false);
+                        auto tag = file.ID3v2Tag();
+                        if (tag)
+                            return fetchID3v2Tags(tag);
+                    }
+                }
+            }
+        next:
+            if (i == 0) break;
+        }
+        return {};
+    }
+    std::map<std::string, std::string> fetchWavID3Tags(std::shared_ptr<IInputStream> stream)
+    {
+        util::FilePositionSaver _(stream);
+        stream->seek(0, SEEK_SET);
+
+        char hdr[12];
+        if (stream->read(hdr, 12) != 12)
+            return {};
+        if (std::memcmp(hdr, "RIFF", 4) && std::memcmp(hdr, "RF64", 4))
+            return {};
+        if (std::memcmp(hdr + 8, "WAVE", 4))
+            return {};
+
+        int64_t fsize = stream->size();
+        for (;;) {
+            char cid[8];
+            if (stream->read(cid, 8) != 8)
+                return {};
+            int64_t cpos = stream->tell() - 8;
+            uint32_t size = cid[4] | (cid[5] << 8) | (cid[6] << 16)
+                          | (static_cast<uint32_t>(cid[7]) << 24);
+            if (!std::memcmp(cid, "ID3 ", 4) || !std::memcmp(cid, "id3 ", 4)) {
+                std::vector<char> buf(size);
+                if (stream->read(&buf[0], size) != static_cast<int>(size))
+                    return {};
+                auto mem = std::make_shared<MemInputStream>(&buf[0], size);
+                TagLibX::IStreamReader reader(mem);
+                TagLib::MPEG::File file(&reader,
+                                        TagLib::ID3v2::FrameFactory::instance(),
+                                        false);
+                auto tag = file.ID3v2Tag();
+                if (!tag)
+                    return {};
+                return fetchID3v2Tags(tag);
+            }
+            /* bogus chunk size (streaming wav): fall back to tail scan */
+            if (fsize > 0 && cpos + 8 + static_cast<int64_t>(size) > fsize)
+                return fetchWavID3TagsFromTail(stream);
+            stream->seek((size + 1) & ~1, SEEK_CUR);
+        }
+    }
 }
 
 namespace M4A {

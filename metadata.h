@@ -53,6 +53,7 @@ namespace TextBasedTag {
 namespace ID3 {
     std::map<std::string, std::string> fetchAiffID3Tags(std::shared_ptr<IInputStream> stream);
     std::map<std::string, std::string> fetchMPEGID3Tags(std::shared_ptr<IInputStream> stream);
+    std::map<std::string, std::string> fetchWavID3Tags(std::shared_ptr<IInputStream> stream);
 }
 
 namespace M4A {

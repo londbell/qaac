@@ -20,6 +20,7 @@ static struct option long_options[] = {
     { "quality", required_argument, 0, 'q' },
     { "adts", no_argument, 0, 'ADTS' },
     { "no-smart-padding", no_argument, 0, 'nspd' },
+    { "itunes-bitrate", required_argument, 0, 'itbr' },
     { "native-resampler", optional_argument, 0, 'nsrc' },
 #endif
 #ifdef REFALAC
@@ -144,6 +145,12 @@ void usage()
 "--he                   HE AAC mode (TVBR is not available)\n"
 "-q, --quality <n>      AAC encoding Quality [0-2]\n"
 "--adts                 ADTS output (AAC only)\n"
+"--itunes-bitrate <kbps>\n"
+"                       Write the given bitrate (kbps) into avgBitrate of\n"
+"                       the esds box, instead of the measured bitrate.\n"
+"                       This is what iTunes/afconvert do, so tools such as\n"
+"                       mediainfo report the requested bitrate.\n"
+"                       Doesn't affect the actual encoding.\n"
 "--no-smart-padding     Don't apply smart padding for gapless playback.\n"
 "                       By default, beginning and ending of input is\n"
 "                       extrapolated to achieve smooth transition between\n"
@@ -781,6 +788,15 @@ bool Options::parse(int &argc, char **&argv)
             this->remix_preset = optarg;
         else if (ch == 'mixm')
             this->remix_file = optarg;
+        else if (ch == 'itbr') {
+            uint32_t n;
+            if (std::sscanf(optarg, "%u", &n) != 1 || !n) {
+                complain("--itunes-bitrate requires a positive integer "
+                         "(bitrate in kbps).\n");
+                return false;
+            }
+            this->itunes_bitrate = n;
+        }
         else if (ch == 'fftg')
             this->filename_from_tag = true;
         else
